@@ -1,0 +1,100 @@
+syntax = "proto3";
+
+package fish_camera.grpc_test;
+
+service CameraProxy {
+  rpc ListCapabilities(CapabilityRequest) returns (CapabilityResponse);
+  rpc GetIntrinsics(CalibrationRequest) returns (IntrinsicsResponse);
+  rpc GetSN(CalibrationRequest) returns (SNResponse);
+  rpc OpenStream(StreamRequest) returns (stream StreamEvent);
+  rpc StopStream(StopStreamRequest) returns (StopStreamResponse);
+}
+
+message CapabilityRequest {
+  string device = 1;
+}
+
+message CapabilityResponse {
+  repeated CameraCapability cameras = 1;
+}
+
+message CameraCapability {
+  string device = 1;
+  repeated CodecCapability codecs = 2;
+}
+
+message CodecCapability {
+  string codec = 1;
+  repeated Mode modes = 2;
+}
+
+message Mode {
+  int32 width = 1;
+  int32 height = 2;
+  repeated int32 fps = 3;
+}
+
+message CalibrationRequest {
+  string device = 1;
+}
+
+message IntrinsicsResponse {
+  string device = 1;
+  string camera_model = 2;
+  string distortion_model = 3;
+  repeated double intrinsics = 4;
+  repeated double camera_matrix = 5;
+  repeated double distortion_coeffs = 6;
+  repeated double resolution = 7;
+  string sn = 8;
+  bool sn_valid = 9;
+  uint32 camera_model_enum = 10;
+}
+
+message SNResponse {
+  string device = 1;
+  string sn = 2;
+  bool valid = 3;
+}
+
+message StreamRequest {
+  string codec = 1;
+  int32 width = 2;
+  int32 height = 3;
+  int32 fps = 4;
+  int32 udp_port = 5;
+  string client_ip = 6;
+  string device = 7;
+  int32 max_datagram = 8;
+}
+
+message StreamEvent {
+  enum Type {
+    TYPE_UNSPECIFIED = 0;
+    STARTED = 1;
+    STATS = 2;
+    STOPPED = 3;
+    ERROR = 4;
+  }
+
+  Type type = 1;
+  string session_id = 2;
+  string message = 3;
+  string codec = 4;
+  int32 width = 5;
+  int32 height = 6;
+  int32 fps = 7;
+  string device = 8;
+  uint64 frames_sent = 9;
+  uint64 bytes_sent = 10;
+  double elapsed_sec = 11;
+}
+
+message StopStreamRequest {
+  string session_id = 1;
+}
+
+message StopStreamResponse {
+  bool stopped = 1;
+  string message = 2;
+}

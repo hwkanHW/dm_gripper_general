@@ -1,0 +1,15 @@
+name: daimon-gripper-gpu
+channels:
+  - nvidia
+  - conda-forge
+  - defaults
+dependencies:
+  - python=3.10
+  - pip
+  - setuptools
+  - wheel
+  - cuda-toolkit=12.4
+  - pip:
+      - -r requirements-gpu.txt
+variables:
+  PYTHONNOUSERSITE: "1"
