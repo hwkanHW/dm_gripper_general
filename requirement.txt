@@ -13,6 +13,13 @@ grpcio-tools>=1.70.0
 protobuf>=6.32.1
 typing_extensions>=4.12
 
+# Gripper-only HTTP/WebSocket server and GUI client
+fastapi>=0.110
+uvicorn>=0.27
+requests>=2.31
+websocket-client>=1.6
+websockets>=12.0
+
 # Camera viewer / image processing
 numpy>=1.20
 opencv-contrib-python>=4.6.0.66,<=4.11.0.84

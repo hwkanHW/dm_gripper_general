@@ -99,6 +99,30 @@ GPU 依赖细节见 `dm_gripper_tac_py/requirements-gpu.txt` 和 `dm_gripper_tac
 | 双手夹爪控制 | 直接连接 SDK 分别控制左右夹爪，左右分开的连续位置 bar | `python examples/gripper_dual_control.py` |
 | 触觉 dashboard | 触觉显示兼容入口 | `python examples/tac.py` |
 
+## 远程夹爪 Server/GUI
+
+如果只需要远程控制夹爪，不启动 ROS 或相机，可以先在连接夹爪 CAN/gRPC 的机器上启动 server：
+
+```bash
+python gripper_server.py --host 0.0.0.0 --port 8020 \
+  --left-gripper 192.168.14.11:55551 \
+  --right-gripper 192.168.14.10:55551
+```
+
+然后在控制端启动 GUI client：
+
+```bash
+python gripper_gui_client.py --server-url http://SERVER_IP:8020
+```
+
+通信接口和 `vlahost` 保持同类结构：`GET /state` 获取快照，`POST /command` 发送低频命令，`/ws/state` 推送状态，`/ws/command` 连续发送控制命令。命令 JSON 示例：
+
+```json
+{"side":"all","position":1000,"speed":50,"torque":50}
+```
+
+`position` 范围是 `0..1000`，其中 `0=闭合`，`1000=张开`。GUI 支持拖动左右滑条，快捷键 `L` 闭合、`P` 张开、`Q`/`Esc` 退出。
+
 ## 常用命令
 
 单手整合 dashboard 通过 `--ip` 选择整只单手设备；相机、触觉和夹爪默认都使用这个 IP，夹爪地址自动是 `IP:55551`：
