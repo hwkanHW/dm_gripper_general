@@ -19,7 +19,8 @@ from typing import Any, Literal
 from urllib.parse import urlsplit
 
 import uvicorn
-from fastapi import FastAPI, WebSocket, WebSocketDisconnect
+from fastapi import FastAPI, Response, WebSocket, WebSocketDisconnect
+from fastapi.responses import StreamingResponse
 from pydantic import BaseModel, Field, ValidationError
 
 try:
@@ -34,8 +35,21 @@ if str(GRIPPER_SDK_ROOT) not in sys.path:
 
 from dm_lingkong_grip_sdk import LingkongGrip  # noqa: E402
 
+CAMERA_SDK_ROOT = PROJECT_ROOT / "dm_gripper_cam_py"
+if str(CAMERA_SDK_ROOT) not in sys.path:
+    sys.path.insert(0, str(CAMERA_SDK_ROOT))
+
+try:
+    import cv2  # noqa: E402
+    from remote_camera import RemoteCameraCapture  # noqa: E402
+except ImportError:  # pragma: no cover
+    cv2 = None
+    RemoteCameraCapture = None
+
 DEFAULT_LEFT_GRIPPER = "192.168.14.11:55551"
 DEFAULT_RIGHT_GRIPPER = "192.168.14.10:55551"
+DEFAULT_LEFT_CAMERA = "192.168.14.10"
+DEFAULT_RIGHT_CAMERA = "192.168.14.11"
 
 
 def clamp(value: int | float, low: int | float, high: int | float):
@@ -216,6 +230,172 @@ class GripperServer:
 
 
 runtime: GripperServer | None = None
+camera_servers: list["CameraMjpegServer"] = []
+
+
+class CameraMjpegServer:
+    def __init__(
+        self,
+        *,
+        side: str,
+        host: str,
+        port: int,
+        camera_host: str,
+        camera_port: int,
+        codec: str,
+        width: int,
+        height: int,
+        fps: int,
+        jpeg_quality: int,
+        client_ip: str,
+        bind_host: str,
+        device: str,
+    ):
+        self.side = side
+        self.host = host
+        self.port = int(port)
+        self.camera_host = camera_host
+        self.camera_port = int(camera_port)
+        self.codec = codec
+        self.width = int(width)
+        self.height = int(height)
+        self.fps = int(fps)
+        self.jpeg_quality = int(clamp(jpeg_quality, 1, 100))
+        self.client_ip = client_ip
+        self.bind_host = bind_host
+        self.device = device
+
+        self.capture = None
+        self.latest_jpeg: bytes | None = None
+        self.latest_error = ""
+        self.frame_count = 0
+        self.last_frame_time = 0.0
+        self.lock = threading.Lock()
+        self.stop_event = threading.Event()
+        self.capture_thread: threading.Thread | None = None
+        self.server_thread: threading.Thread | None = None
+        self.server: uvicorn.Server | None = None
+        self.app = self._build_app()
+
+    def _build_app(self) -> FastAPI:
+        app = FastAPI(title=f"Daimon {self.side} camera stream")
+
+        @app.get("/health")
+        def health():
+            return self.snapshot()
+
+        @app.get("/snapshot.jpg")
+        def snapshot_jpg():
+            with self.lock:
+                data = self.latest_jpeg
+            if data is None:
+                return Response(status_code=503, content=b"no frame")
+            return Response(content=data, media_type="image/jpeg")
+
+        @app.get("/video")
+        @app.get("/stream.mjpg")
+        def video():
+            return StreamingResponse(
+                self._mjpeg_generator(),
+                media_type="multipart/x-mixed-replace; boundary=frame",
+            )
+
+        return app
+
+    def snapshot(self) -> dict[str, Any]:
+        with self.lock:
+            has_frame = self.latest_jpeg is not None
+            last_age = time.time() - self.last_frame_time if self.last_frame_time else None
+            error = self.latest_error
+            frame_count = self.frame_count
+        return {
+            "side": self.side,
+            "camera_host": self.camera_host,
+            "camera_port": self.camera_port,
+            "has_frame": has_frame,
+            "frame_count": frame_count,
+            "last_frame_age": last_age,
+            "error": error,
+        }
+
+    def start(self) -> None:
+        self.stop_event.clear()
+        config = uvicorn.Config(self.app, host=self.host, port=self.port, access_log=False, log_level="warning")
+        self.server = uvicorn.Server(config)
+        self.server_thread = threading.Thread(target=self.server.run, daemon=True)
+        self.server_thread.start()
+        if RemoteCameraCapture is None or cv2 is None:
+            self.latest_error = "dm_gripper_cam_py and opencv-python are required"
+            return
+        self.capture_thread = threading.Thread(target=self._capture_loop, daemon=True)
+        self.capture_thread.start()
+
+    def stop(self) -> None:
+        self.stop_event.set()
+        if self.server is not None:
+            self.server.should_exit = True
+        if self.capture is not None:
+            self.capture.release()
+        if self.capture_thread is not None and self.capture_thread.is_alive():
+            self.capture_thread.join(timeout=1.0)
+        if self.server_thread is not None and self.server_thread.is_alive():
+            self.server_thread.join(timeout=1.0)
+
+    def _capture_loop(self) -> None:
+        while not self.stop_event.is_set():
+            try:
+                self.capture = RemoteCameraCapture(
+                    host=self.camera_host,
+                    port=self.camera_port,
+                    codec=self.codec,
+                    width=self.width,
+                    height=self.height,
+                    fps=self.fps,
+                    client_ip=self.client_ip,
+                    bind_host=self.bind_host,
+                    device=self.device,
+                )
+                self.capture.open()
+                while not self.stop_event.is_set() and self.capture.isOpened():
+                    ok, frame = self.capture.read(timeout=1.0)
+                    if not ok or frame is None:
+                        continue
+                    ok, encoded = cv2.imencode(
+                        ".jpg",
+                        frame,
+                        [int(cv2.IMWRITE_JPEG_QUALITY), self.jpeg_quality],
+                    )
+                    if not ok:
+                        continue
+                    with self.lock:
+                        self.latest_jpeg = encoded.tobytes()
+                        self.latest_error = ""
+                        self.frame_count += 1
+                        self.last_frame_time = time.time()
+            except Exception as exc:
+                with self.lock:
+                    self.latest_error = str(exc)
+                time.sleep(1.0)
+            finally:
+                if self.capture is not None:
+                    self.capture.release()
+                    self.capture = None
+
+    def _mjpeg_generator(self):
+        while not self.stop_event.is_set():
+            with self.lock:
+                data = self.latest_jpeg
+            if data is None:
+                time.sleep(0.05)
+                continue
+            yield (
+                b"--frame\r\n"
+                b"Content-Type: image/jpeg\r\n"
+                b"Content-Length: " + str(len(data)).encode("ascii") + b"\r\n\r\n" +
+                data +
+                b"\r\n"
+            )
+            time.sleep(1.0 / max(self.fps, 1))
 
 
 @asynccontextmanager
@@ -223,9 +403,13 @@ async def lifespan(_: FastAPI):
     if runtime is None:
         raise RuntimeError("server runtime was not configured")
     runtime.start()
+    for camera_server in camera_servers:
+        camera_server.start()
     try:
         yield
     finally:
+        for camera_server in camera_servers:
+            camera_server.stop()
         runtime.stop()
 
 
@@ -288,11 +472,26 @@ def build_arg_parser() -> argparse.ArgumentParser:
     parser.add_argument("--torque", type=int, default=50, help="initial torque, 10..100")
     parser.add_argument("--min-pos", type=int, default=0, help="command lower bound, 0..1000")
     parser.add_argument("--max-pos", type=int, default=1000, help="command upper bound, 0..1000")
+    parser.add_argument("--enable-image-streams", action="store_true", help="serve left/right camera MJPEG streams")
+    parser.add_argument("--image-host", default="0.0.0.0", help="bind address for MJPEG image servers")
+    parser.add_argument("--left-image-port", type=int, default=8021)
+    parser.add_argument("--right-image-port", type=int, default=8022)
+    parser.add_argument("--left-camera-host", default=DEFAULT_LEFT_CAMERA)
+    parser.add_argument("--right-camera-host", default=DEFAULT_RIGHT_CAMERA)
+    parser.add_argument("--camera-port", type=int, default=50088)
+    parser.add_argument("--camera-codec", choices=("MJPG", "HEVC"), default="MJPG")
+    parser.add_argument("--camera-width", type=int, default=1280)
+    parser.add_argument("--camera-height", type=int, default=720)
+    parser.add_argument("--camera-fps", type=int, default=60)
+    parser.add_argument("--camera-jpeg-quality", type=int, default=80)
+    parser.add_argument("--camera-client-ip", default="")
+    parser.add_argument("--camera-bind-host", default="0.0.0.0")
+    parser.add_argument("--camera-device", default="")
     return parser
 
 
 def main(argv=None) -> None:
-    global runtime
+    global runtime, camera_servers
     if websockets is None:
         raise RuntimeError(
             "gripper_server.py requires a uvicorn WebSocket protocol backend. "
@@ -310,6 +509,40 @@ def main(argv=None) -> None:
         parser.error("--min-pos must be <= --max-pos")
 
     runtime = GripperServer(args)
+    camera_servers = []
+    if args.enable_image_streams:
+        camera_servers = [
+            CameraMjpegServer(
+                side="left",
+                host=args.image_host,
+                port=args.left_image_port,
+                camera_host=args.left_camera_host,
+                camera_port=args.camera_port,
+                codec=args.camera_codec,
+                width=args.camera_width,
+                height=args.camera_height,
+                fps=args.camera_fps,
+                jpeg_quality=args.camera_jpeg_quality,
+                client_ip=args.camera_client_ip,
+                bind_host=args.camera_bind_host,
+                device=args.camera_device,
+            ),
+            CameraMjpegServer(
+                side="right",
+                host=args.image_host,
+                port=args.right_image_port,
+                camera_host=args.right_camera_host,
+                camera_port=args.camera_port,
+                codec=args.camera_codec,
+                width=args.camera_width,
+                height=args.camera_height,
+                fps=args.camera_fps,
+                jpeg_quality=args.camera_jpeg_quality,
+                client_ip=args.camera_client_ip,
+                bind_host=args.camera_bind_host,
+                device=args.camera_device,
+            ),
+        ]
     uvicorn.run(app, host=args.host, port=args.port, access_log=False)
 
 

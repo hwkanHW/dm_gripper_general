@@ -123,6 +123,23 @@ python gripper_gui_client.py --server-url http://SERVER_IP:8020
 
 `position` 范围是 `0..1000`，其中 `0=闭合`，`1000=张开`。GUI 支持拖动左右滑条，快捷键 `L` 闭合、`P` 张开、`Q`/`Esc` 退出。
 
+如果同时需要通过 `8021` 和 `8022` 查看左右夹爪相机图像，启动 server 时加 `--enable-image-streams`：
+
+```bash
+python gripper_server.py --host 0.0.0.0 --port 8020 \
+  --left-gripper 192.168.14.11:55551 \
+  --right-gripper 192.168.14.10:55551 \
+  --enable-image-streams \
+  --left-camera-host 192.168.14.10 \
+  --right-camera-host 192.168.14.11
+```
+
+图像接口是 `http://SERVER_IP:8021/video` 和 `http://SERVER_IP:8022/video`。查看端运行：
+
+```bash
+python img_client.py --host SERVER_IP
+```
+
 ## 常用命令
 
 单手整合 dashboard 通过 `--ip` 选择整只单手设备；相机、触觉和夹爪默认都使用这个 IP，夹爪地址自动是 `IP:55551`：
