@@ -123,13 +123,12 @@ python gripper_gui_client.py --server-url http://SERVER_IP:8020
 
 `position` 范围是 `0..1000`，其中 `0=闭合`，`1000=张开`。GUI 支持拖动左右滑条，快捷键 `L` 闭合、`P` 张开、`Q`/`Esc` 退出。
 
-如果同时需要通过 `8021` 和 `8022` 查看左右夹爪相机图像，启动 server 时加 `--enable-image-streams`：
+默认会通过 `8021` 和 `8022` 启动左右夹爪相机图像服务：
 
 ```bash
 python gripper_server.py --host 0.0.0.0 --port 8020 \
   --left-gripper 192.168.14.11:55551 \
   --right-gripper 192.168.14.10:55551 \
-  --enable-image-streams \
   --left-camera-host 192.168.14.10 \
   --right-camera-host 192.168.14.11
 ```
@@ -139,6 +138,8 @@ python gripper_server.py --host 0.0.0.0 --port 8020 \
 ```bash
 python img_client.py --host SERVER_IP
 ```
+
+如果不需要图像服务，启动 server 时加 `--disable-image-streams`。
 
 ## 常用命令
 

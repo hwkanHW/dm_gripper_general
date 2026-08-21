@@ -468,11 +468,23 @@ def build_arg_parser() -> argparse.ArgumentParser:
     parser.add_argument("--port", type=int, default=8020)
     parser.add_argument("--left-gripper", default=DEFAULT_LEFT_GRIPPER, help="left gripper host:port, empty to disable")
     parser.add_argument("--right-gripper", default=DEFAULT_RIGHT_GRIPPER, help="right gripper host:port, empty to disable")
-    parser.add_argument("--speed", type=int, default=50, help="initial speed, 10..100")
+    parser.add_argument("--speed", type=int, default=100, help="initial speed, 10..100")
     parser.add_argument("--torque", type=int, default=50, help="initial torque, 10..100")
     parser.add_argument("--min-pos", type=int, default=0, help="command lower bound, 0..1000")
     parser.add_argument("--max-pos", type=int, default=1000, help="command upper bound, 0..1000")
-    parser.add_argument("--enable-image-streams", action="store_true", help="serve left/right camera MJPEG streams")
+    parser.add_argument(
+        "--enable-image-streams",
+        dest="enable_image_streams",
+        action="store_true",
+        default=True,
+        help="serve left/right camera MJPEG streams (enabled by default)",
+    )
+    parser.add_argument(
+        "--disable-image-streams",
+        dest="enable_image_streams",
+        action="store_false",
+        help="do not serve left/right camera MJPEG streams",
+    )
     parser.add_argument("--image-host", default="0.0.0.0", help="bind address for MJPEG image servers")
     parser.add_argument("--left-image-port", type=int, default=8021)
     parser.add_argument("--right-image-port", type=int, default=8022)
