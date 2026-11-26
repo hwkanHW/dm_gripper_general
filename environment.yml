@@ -9,8 +9,9 @@ dependencies:
   - wheel
   - ffmpeg
   - pip:
-      - -r requirement.txt
-      - -e dm_gripper_py
-      - -e dm_gripper_tac_py
+      - -r requirements.txt
+      - -e sdks/dm_gripper_py
+      - -e sdks/dm_gripper_tac_py
+      - -e .
 variables:
   PYTHONNOUSERSITE: "1"

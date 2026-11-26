@@ -1,5 +1,8 @@
 # cftc fish camera 运维问答脚本
 
+scp /home/dm/code/dm_gripper_general/deploy/camera/server.py cftc@192.168.1.10:~/server.py
+
+
 ## 问题 1：如何把 `/app/fish_cam_server` 目录下的 `python server.py` 配置为开机自启动？
 
 可以用 `systemd` 做自启动。假设远程机器上项目路径是：

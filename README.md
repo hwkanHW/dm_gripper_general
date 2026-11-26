@@ -1,220 +1,110 @@
-# Daimon Stuff
+# Daimon Gripper Tools
 
-本仓库收集了 Daimon 夹爪、远程相机和触觉检测相关的 Python 工具。这个目录主要用于本地调试、双夹爪控制、双相机预览，以及触觉/滑移检测实验。
-![System Architecture](pipeline.png)
+夹爪控制、远程相机预览和触觉 dashboard。日常启动入口保留在根目录与 `examples/`，实现集中在 `src/daimon_control/`，底层 SDK 保持独立。
 
-## 目录结构
+![System Architecture](docs/pipeline.png)
 
-| 路径 | 说明 |
-|---|---|
-| `dm_gripper_py/` | 夹爪控制 SDK 与基础测试脚本 |
-| `dm_gripper_cam_py/` | 远程鱼眼相机客户端、双相机查看器和 gRPC/UDP 视频流逻辑 |
-| `dm_gripper_tac_py/` | 触觉感知、力估计、滑移检测和 TensorRT/CUDA 推理相关工具 |
-| `examples/` | 可直接运行的示例入口，包含相机、触觉、夹爪和整合 dashboard |
+## 安装
 
-## Conda 环境配置
-
-推荐从项目根目录创建独立 conda 环境。默认环境覆盖夹爪 SDK、远程相机客户端和触觉 CPU/基础流程：
+在项目根目录创建或更新环境：
 
 ```bash
 conda env create -f environment.yml
 conda activate daimon-gripper
+# 已有环境：conda env update -f environment.yml --prune
 ```
 
-如果环境已经存在，需要按当前文件更新：
+SDK 迁入 `sdks/` 后，已有环境需重新注册两个 SDK 和应用包的 editable 路径，无需重新下载依赖：
 
 ```bash
-conda env update -f environment.yml --prune
-conda activate daimon-gripper
+python -m pip install --no-deps --no-build-isolation -e sdks/dm_gripper_py -e sdks/dm_gripper_tac_py -e .
 ```
 
-安装完成后做基础导入检查：
+手动安装完整环境：
 
 ```bash
-python -c "import grpc, cv2, numpy, dm_lingkong_grip_sdk, dmrobotics; print('daimon-gripper env ok')"
+python -m pip install -r requirements.txt
+python -m pip install -e sdks/dm_gripper_py
+python -m pip install -e sdks/dm_gripper_tac_py
+python -m pip install -e .
 ```
 
-如果只想手动用 pip 安装，也可以在已激活的环境中执行：
+`requirements.txt` 为统一依赖清单。根目录与 `examples/` 中的启动脚本均导入已安装的应用包，请先完成上述安装。editable 安装后修改源码会直接生效，也可从其他目录使用 `daimon-*` 命令。
+
+GPU 触觉安装见 [触觉 SDK 说明](sdks/dm_gripper_tac_py/README.md) 和 `sdks/dm_gripper_tac_py/environment-gpu.yml`。SDK、模型和 TensorRT/CUDA 库位于 `sdks/` 下，SDK 内部结构保持不变。
+
+## 日常使用
+
+server 默认从根目录的 [gripper_server_config.json](gripper_server_config.json) 读取全部运行参数：
 
 ```bash
-python -m pip install -r requirement.txt
-python -m pip install -e dm_gripper_py
-python -m pip install -e dm_gripper_tac_py
+python gripper_server.py
 ```
 
-## GPU/TensorRT 触觉环境
-
-触觉 GPU 推理需要 NVIDIA driver、CUDA、cuDNN 和 TensorRT 版本匹配。仓库提供了单独的 GPU 环境文件：
+分别在其他终端启动夹爪 GUI 和相机查看器：
 
 ```bash
-cd dm_gripper_tac_py
-conda env create -f environment-gpu.yml
-conda activate daimon-gripper-gpu
-python -m pip install .
-python -m pip install ".[gpu]"
-dmrobotics trt build
+python gripper_gui_client.py --server-url http://127.0.0.1:8020
+python img_client.py --host 127.0.0.1
 ```
 
-如果 GPU 环境已经存在：
+远端查看时，把 `127.0.0.1` 换为 server 所在电脑的 IP。默认夹爪服务端口 `8020`，左右相机 HTTP 端口 `8021/8022`；具体以配置为准。
 
-```bash
-cd dm_gripper_tac_py
-conda env update -f environment-gpu.yml --prune
-conda activate daimon-gripper-gpu
-python -m pip install .
-python -m pip install ".[gpu]"
-dmrobotics trt build
-```
+位置、速度、力矩控制值均为 `0..1`；位置 `0=闭合`、`1=张开`。速度、力矩 `0.5` 对应 SDK 的 `50`，低于 `0.1` 按 SDK 最低档执行，`0` 不代表停止或断力。SDK 原生测试脚本仍使用 SDK 单位。
 
-如果 TensorRT 运行时报动态库找不到，可在激活环境后临时补充库路径：
-
-```bash
-export LD_LIBRARY_PATH="$CONDA_PREFIX/lib/python3.10/site-packages/tensorrt_libs:$CONDA_PREFIX/lib/python3.10/site-packages/nvidia/cuda_runtime/lib:$CONDA_PREFIX/lib:${LD_LIBRARY_PATH:-}"
-```
-
-GPU 依赖细节见 `dm_gripper_tac_py/requirements-gpu.txt` 和 `dm_gripper_tac_py/README.md`。
-
-## 依赖文件说明
-
-| 文件 | 覆盖范围 |
-|---|---|
-| `environment.yml` | 推荐的 conda 基础环境，安装夹爪 SDK 和触觉基础包 |
-| `requirement.txt` | 夹爪、相机和触觉 CPU/基础流程的常用依赖 |
-| `dm_gripper_py/requirement.txt` | 夹爪 SDK 的 gRPC/protobuf 依赖 |
-| `dm_gripper_cam_py/requirements.txt` | 相机客户端依赖，包含 `numpy`、`opencv-python` 等 |
-| `dm_gripper_tac_py/setup.py` | 触觉模块 CPU/基础依赖 |
-| `dm_gripper_tac_py/environment-gpu.yml` | 触觉 GPU/TensorRT 专用 conda 环境 |
-| `dm_gripper_tac_py/requirements-gpu.txt` | 触觉 GPU 环境的固定 pip 依赖 |
-
-## 示例脚本
-
-所有示例都从项目根目录运行。更多说明见 `examples/README.md`。
-
-| 示例 | 用途 | 命令 |
+| 用途 | 源码命令 | 安装后的命令 |
 |---|---|---|
-| 双目相机预览 | 查看左右远程相机，脚本顶部可配置 IP、视频大小和帧率 | `python examples/dual_camera_viewer.py` |
-| 双手整合 dashboard | 双相机、触觉和双夹爪整合显示/控制，底部有左右两条独立连续位置 bar | `python examples/daimond_pack_dual.py` |
-| 单手整合 dashboard | 单手相机、触觉和夹爪整合显示/控制，底部是连续夹爪位置 bar | `python examples/daimond_pack_single.py` |
-| 单手夹爪控制 | 直接连接 SDK 控制一只夹爪，连续位置 bar | `python examples/gripper_single_control.py` |
-| 双手夹爪控制 | 直接连接 SDK 分别控制左右夹爪，左右分开的连续位置 bar | `python examples/gripper_dual_control.py` |
-| 触觉 dashboard | 触觉显示兼容入口 | `python examples/tac.py` |
+| 夹爪与相机服务 | `python gripper_server.py` | `daimon-server` |
+| 远程夹爪 GUI | `python gripper_gui_client.py` | `daimon-gripper-gui` |
+| 相机 HTTP 查看器 | `python img_client.py` | `daimon-image-viewer` |
+| 单手 dashboard | `python examples/dashboard_single.py` | `daimon-dashboard-single` |
+| 双手 dashboard | `python examples/dashboard_dual.py` | `daimon-dashboard-dual` |
 
-## 远程夹爪 Server/GUI
+独立夹爪、相机和触觉示例见 [examples/README.md](examples/README.md)。双手 dashboard 的外部夹爪接收器未包含在本仓库中，使用限制见 [故障排查](docs/troubleshooting.md)。
 
-如果只需要远程控制夹爪，不启动 ROS 或相机，可以先在连接夹爪 CAN/gRPC 的机器上启动 server：
-
-```bash
-python gripper_server.py --host 0.0.0.0 --port 8020 \
-  --left-gripper 192.168.14.11:55551 \
-  --right-gripper 192.168.14.10:55551
-```
-
-然后在控制端启动 GUI client：
-
-```bash
-python gripper_gui_client.py --server-url http://SERVER_IP:8020
-```
-
-通信接口和 `vlahost` 保持同类结构：`GET /state` 获取快照，`POST /command` 发送低频命令，`/ws/state` 推送状态，`/ws/command` 连续发送控制命令。命令 JSON 示例：
-
-```json
-{"side":"all","position":1000,"speed":50,"torque":50}
-```
-
-`position` 范围是 `0..1000`，其中 `0=闭合`，`1000=张开`。GUI 支持拖动左右滑条，快捷键 `L` 闭合、`P` 张开、`Q`/`Esc` 退出。
-
-默认会通过 `8021` 和 `8022` 启动左右夹爪相机图像服务：
-
-```bash
-python gripper_server.py --host 0.0.0.0 --port 8020 \
-  --left-gripper 192.168.14.11:55551 \
-  --right-gripper 192.168.14.10:55551 \
-  --left-camera-host 192.168.14.10 \
-  --right-camera-host 192.168.14.11
-```
-
-图像接口是 `http://SERVER_IP:8021/video` 和 `http://SERVER_IP:8022/video`。查看端运行：
-
-```bash
-python img_client.py --host SERVER_IP
-```
-
-如果不需要图像服务，启动 server 时加 `--disable-image-streams`。
-
-## 常用命令
-
-单手整合 dashboard 通过 `--ip` 选择整只单手设备；相机、触觉和夹爪默认都使用这个 IP，夹爪地址自动是 `IP:55551`：
-
-```bash
-python examples/daimond_pack_single.py --ip 192.168.14.10
-python examples/daimond_pack_single.py --ip 192.168.14.11
-```
-
-夹爪基础测试：
-
-```bash
-python dm_gripper_py/test_grip.py
-```
-
-双夹爪交互控制：
-
-```bash
-python dm_gripper_py/dual_interactive_position.py
-```
-
-相机默认地址：
-
-| 设备 | 地址 |
-|---|---|
-| 左手 | `192.168.14.10` |
-| 右手 | `192.168.14.11` |
-
-## 相机链路
+## 目录结构
 
 ```text
-examples/dual_camera_viewer.py
-  -> dm_gripper_cam_py/dual_camera_viewer.py
-  -> dm_gripper_cam_py/remote_camera.py
-  -> dm_gripper_cam_py/camera_proxy* + udp_frame.py + hevc_ffmpeg_decoder.py
+.
+├── gripper_server.py             # 兼容启动入口
+├── gripper_gui_client.py         # 兼容启动入口
+├── img_client.py                 # 兼容启动入口
+├── gripper_server_config.json    # server 全部运行配置
+├── pyproject.toml               # 应用包、依赖及命令入口
+├── requirements.txt
+├── environment.yml
+├── src/daimon_control/
+│   ├── config.py                # 配置读取、校验和命令行覆盖
+│   ├── gripper.py               # server 与直接控制的 SDK 适配器
+│   ├── units.py                 # 0–1 与 SDK 单位转换
+│   ├── camera.py                # 相机 SDK 访问
+│   ├── server/                  # 路由、命令模型、MJPEG 服务
+│   ├── clients/                 # 远程 GUI、HTTP 查看器、直接控制 GUI
+│   └── dashboards/              # 单/双手整合界面
+├── examples/                    # 简短启动入口与兼容入口
+├── sdks/
+│   ├── dm_gripper_py/           # 夹爪 SDK 和原生测试
+│   ├── dm_gripper_cam_py/       # 相机 SDK、协议、解码器和原生测试
+│   └── dm_gripper_tac_py/       # 触觉 SDK、模型与原生实验脚本
+├── deploy/camera/               # 在相机设备上部署的服务端更新文件
+├── docs/                        # 文档及架构图 pipeline.png
+└── tests/
 ```
 
-`examples/dual_camera_viewer.py` 是可直接运行的示例入口。核心参数、后台读取 worker 和显示循环在 `dm_gripper_cam_py/dual_camera_viewer.py`，远程连接和视频流读取在 `dm_gripper_cam_py/remote_camera.py`。
+启动入口直接导入已安装的应用包，不再使用 `_bootstrap.py` 或手工修改模块搜索路径。Dashboard 统一使用 `examples/dashboard_single.py` 和 `examples/dashboard_dual.py`，公共夹爪界面实现位于 `src/daimon_control/clients/direct_control.py`。
 
-双目相机脚本默认配置在 `examples/dual_camera_viewer.py` 顶部：
+## 文档与验证
 
-```python
-LEFT_IP = "192.168.14.10"
-RIGHT_IP = "192.168.14.11"
-VIDEO_SIZE = (1280, 720)
-FPS = 60
-```
+- [配置说明](docs/configuration.md)
+- [HTTP / WebSocket 接口](docs/api.md)
+- [相机与 dashboard 故障排查](docs/troubleshooting.md)
+- [模块职责与旧路径迁移表](docs/structure.md)
+- [相机设备端部署](deploy/camera/README.md)
 
-也可以临时用命令行覆盖：
+从项目根目录运行无需硬件的回归测试：
 
 ```bash
-python examples/dual_camera_viewer.py --left-ip 192.168.14.10 --right-ip 192.168.14.11 --video-size 1280x720 --fps 60
+python -m unittest discover -s tests -v
 ```
 
-## 调参入口
-
-夹爪闭合行为常用参数包括：
-
-| 参数 | 作用 | 建议 |
-|---|---|---|
-| `--speed 50` | 移动速度 | SDK 原生范围 `10-100` |
-| `--torque 50` | 最大力矩 | SDK 原生范围 `10-100` |
-| `--hold-torque 10` | 接触后的保持力 | 默认保持 `10` 即可，避免持续加大压力 |
-| `--min-pos 0` | 位置 bar 下限 | SDK 原生位置：`0=闭合` |
-| `--max-pos 1000` | 位置 bar 上限 | SDK 原生位置：`1000=张开` |
-| `--current-threshold 120` | 电流停止阈值 | 主要依靠位置停滞检测判断接触，该参数保持默认即可 |
-| `--poll-interval 0.05` | 状态检测周期，单位秒 | 越小响应越快，推荐范围 `0.03-0.08` |
-| `--contact-grace 0.4` | 接触检测延迟时间 | 忽略启动阶段无运动状态，避免误判。速度较慢时可增加到 `0.6` |
-| `--progress-epsilon 2` | 最小运动距离阈值 | 误停止时降低到 `1`；停止过晚时增加到 `3-5` |
-| `--stall-samples 5` | 停滞检测次数 | 响应慢改为 `3`；误停止改为 `6-8` |
-
-## 注意事项
-
-- 运行前确认夹爪和相机 IP 与脚本配置一致。
-- 远程相机依赖 OpenCV、gRPC 和视频解码环境。
-- GPU 触觉推理需要 NVIDIA driver、CUDA、cuDNN 和 TensorRT 环境匹配。
-- 子目录中各自保留了更详细的安装与测试说明。
+测试覆盖配置读取、归一化控制、模拟 API、模块导入和命令入口；真实夹爪动作、相机取流和触觉推理需在设备环境单独验证。

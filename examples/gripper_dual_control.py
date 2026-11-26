@@ -2,14 +2,9 @@
 from __future__ import annotations
 
 import argparse
-import sys
-from pathlib import Path
 
-EXAMPLES_DIR = Path(__file__).resolve().parent
-if str(EXAMPLES_DIR) not in sys.path:
-    sys.path.insert(0, str(EXAMPLES_DIR))
 
-from gripper_control_common import (
+from daimon_control.clients.direct_control import (
     DEFAULT_CONTROL_SEND_HZ,
     DEFAULT_GRIPPER_PORT,
     DEFAULT_LEFT_IP,
@@ -25,8 +20,8 @@ LEFT_IP = DEFAULT_LEFT_IP
 RIGHT_IP = DEFAULT_RIGHT_IP
 LEFT_GRIPPER_SERVER = f"{LEFT_IP}:{DEFAULT_GRIPPER_PORT}"
 RIGHT_GRIPPER_SERVER = f"{RIGHT_IP}:{DEFAULT_GRIPPER_PORT}"
-MIN_POS = 0
-MAX_POS = 1000
+MIN_POS = 0.0
+MAX_POS = 1.0
 CONTROL_SEND_HZ = DEFAULT_CONTROL_SEND_HZ
 
 

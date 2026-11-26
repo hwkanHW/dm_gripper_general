@@ -1,0 +1,33 @@
+{
+  "server": {
+    "host": "0.0.0.0",
+    "port": 8020
+  },
+  "grippers": {
+    "left": "192.168.1.10:55551",
+    "right": "192.168.1.11:55551",
+    "speed": 1.0,
+    "torque": 0.5,
+    "min_pos": 0.0,
+    "max_pos": 1.0
+  },
+  "image_streams": {
+    "enabled": true,
+    "host": "0.0.0.0",
+    "left_port": 8021,
+    "right_port": 8022
+  },
+  "cameras": {
+    "left_ip": "192.168.1.10",
+    "right_ip": "192.168.1.11",
+    "width": 1920,
+    "height": 1080,
+    "fps": 30,
+    "port": 50088,
+    "codec": "MJPG",
+    "jpeg_quality": 80,
+    "client_ip": "",
+    "bind_host": "0.0.0.0",
+    "device": ""
+  }
+}

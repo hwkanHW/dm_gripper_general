@@ -1,86 +1,52 @@
-# 示例脚本
+# 示例入口
 
-这些脚本是项目的可运行入口。请从项目根目录执行命令，脚本内部会自动把项目根目录加入 Python 搜索路径。
+在安装好应用包的环境中，从项目根目录运行。安装方式见根目录 README。示例只负责启动和少量默认参数；公共实现位于 `src/daimon_control/`。
 
-| 示例 | 用途 | 命令 |
+| 用途 | 命令 | 实现位置 |
 |---|---|---|
-| 双目相机预览 | 查看左右远程相机，脚本顶部可配置 IP、视频大小和帧率 | `python examples/dual_camera_viewer.py` |
-| 双手整合 dashboard | 双相机、触觉和双夹爪整合显示/控制，底部有左右两条独立连续位置 bar | `python examples/daimond_pack_dual.py` |
-| 单手整合 dashboard | 单手相机、触觉和夹爪整合显示/控制，底部是连续夹爪位置 bar | `python examples/daimond_pack_single.py` |
-| 单手夹爪控制 | 直接连接 SDK 控制一只夹爪，连续位置 bar | `python examples/gripper_single_control.py` |
-| 双手夹爪控制 | 直接连接 SDK 分别控制左右夹爪，左右分开的连续位置 bar | `python examples/gripper_dual_control.py` |
-| 触觉 dashboard | 触觉显示兼容入口 | `python examples/tac.py` |
+| 双相机直连预览 | `python examples/dual_camera_viewer.py` | `sdks/dm_gripper_cam_py/dual_camera_viewer.py` |
+| 单夹爪直接控制 | `python examples/gripper_single_control.py` | `daimon_control/clients/direct_control.py` |
+| 双夹爪直接控制 | `python examples/gripper_dual_control.py` | `daimon_control/clients/direct_control.py` |
+| 单手 dashboard | `python examples/dashboard_single.py` | `daimon_control/dashboards/single.py` |
+| 双手 dashboard | `python examples/dashboard_dual.py` | `daimon_control/dashboards/dual.py` |
+| 触觉 dashboard | `python examples/tac.py` | `sdks/dm_gripper_tac_py/tac.py` |
 
-## 双目相机配置
+Dashboard 统一使用 `dashboard_single.py`、`dashboard_dual.py`。公共夹爪控制代码从 `daimon_control` 包导入，示例目录只保留可运行入口。
 
-直接改 `examples/dual_camera_viewer.py` 顶部默认值：
+## 相机
 
-```python
-LEFT_IP = "192.168.14.10"
-RIGHT_IP = "192.168.14.11"
-VIDEO_SIZE = (1280, 720)
-FPS = 60
-```
-
-也可以临时用命令行覆盖：
+直连脚本不经过 gripper server，也不读取 `gripper_server_config.json`：
 
 ```bash
-python examples/dual_camera_viewer.py --left-ip 192.168.14.10 --right-ip 192.168.14.11 --video-size 1280x720 --fps 60
+python examples/dual_camera_viewer.py \
+  --left-ip 192.168.1.10 --right-ip 192.168.1.11 \
+  --video-size 1280x720 --fps 30 --codec MJPG
 ```
 
-## Dashboard 频率
+必要时用 `--client-ip` 指定本机接收 UDP 图像的网卡 IP。`MJPG` 和 `HEVC` 是可选编码，实际模式取决于设备。脚本顶部保留 `LEFT_IP`、`RIGHT_IP`、`VIDEO_SIZE`、`FPS` 默认值。
 
-`examples/daimond_pack_single.py` 和 `examples/daimond_pack_dual.py` 顶部都暴露了常用频率默认值：
-
-```python
-DEFAULT_CAMERA_FPS = 60
-DEFAULT_TACTILE_MAX_FPS = 120
-DEFAULT_CONTROL_SEND_HZ = 10.0
-```
-
-也可以命令行临时覆盖：
-
-```bash
-python examples/daimond_pack_single.py --fps 60 --max-fps 120 --control-send-hz 10
-python examples/daimond_pack_dual.py --fps 60 --max-fps 120 --control-send-hz 10
-```
-
-单手 dashboard 通过 `--ip` 选择整只单手设备；相机、触觉和夹爪默认都使用这个 IP，夹爪地址自动是 `IP:55551`：
-
-```bash
-python examples/daimond_pack_single.py --ip 192.168.14.10
-python examples/daimond_pack_single.py --ip 192.168.14.11
-```
-
-如果只想单独改夹爪地址，可以覆盖 `--gripper-server`：
-
-```bash
-python examples/daimond_pack_single.py --ip 192.168.14.10 --gripper-server 192.168.14.99:55551
-```
+相机单会话被占用时，先停止占用程序；若需同时控制夹爪，启动 `python gripper_server.py --disable-image-streams` 再使用直连查看器。
 
 ## 独立夹爪控制
 
-这两个脚本直接连接夹爪 SDK，不需要单独启动接收器。
-
-单手脚本顶部可改默认夹爪地址、位置范围和连续控制发送频率：
-
-```python
-GRIPPER_IP = "192.168.14.11"
-MIN_POS = 0
-MAX_POS = 1000
-CONTROL_SEND_HZ = 10.0
+```bash
+python examples/gripper_single_control.py --ip 192.168.1.10 --speed 0.5 --torque 0.3
+python examples/gripper_dual_control.py --left-ip 192.168.1.10 --right-ip 192.168.1.11
 ```
 
-双手脚本顶部可分别改左右夹爪地址：
+位置、速度、力矩参数为 `0..1`，位置 `0=闭合`、`1=张开`；速度、力矩低于 `0.1` 按 SDK 最低档执行。脚本顶部可编辑 `MIN_POS`、`MAX_POS` 和 `CONTROL_SEND_HZ`。此处的设备默认值与 server 配置独立。
 
-```python
-LEFT_IP = "192.168.14.10"
-RIGHT_IP = "192.168.14.11"
-```
-
-运行：
+## Dashboard
 
 ```bash
-python examples/gripper_single_control.py
-python examples/gripper_dual_control.py
+python examples/dashboard_single.py --ip 192.168.1.10
+python examples/dashboard_single.py --ip 192.168.1.10 --fps 30 --max-fps 120 --control-send-hz 10
 ```
+
+单手 dashboard 的相机、触觉、夹爪默认使用 `--ip`，夹爪地址自动补充 `:55551`，可用 `--gripper-server` 单独覆盖。
+
+默认频率和实现位于 `src/daimon_control/dashboards/single.py`、`dual.py`；推荐通过命令行覆盖。每个入口支持 `--help`。
+
+双手 dashboard 依赖外部 `grip_signal_receiver.py`，本仓库未包含。需用 `--grip-signal-receiver-path /path/to/grip_signal_receiver.py` 指定接收器，或用 `--no-grip-signal-auto-start` 连接已运行的兼容接收器。此次仅迁移结构，未替换其控制链路。
+
+GUI 常用操作：拖动位置条，`L` 闭合、`P` 张开、`Q` / `Esc` 退出；dashboard 的 `R` 重置触觉。

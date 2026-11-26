@@ -2,7 +2,7 @@
 #
 # This file covers the common gripper, camera, and tactile CPU/base workflows.
 # GPU/TensorRT-specific tactile dependencies are intentionally kept in:
-#   dm_gripper_tac_py/requirements-gpu.txt
+#   sdks/dm_gripper_tac_py/requirements-gpu.txt
 
 setuptools
 wheel

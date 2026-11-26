@@ -25,12 +25,9 @@ from pathlib import Path
 import cv2
 import numpy as np
 
-PROJECT_ROOT = Path(__file__).resolve().parents[1]
-EXAMPLES_DIR = Path(__file__).resolve().parent
-if str(PROJECT_ROOT) not in sys.path:
-    sys.path.insert(0, str(PROJECT_ROOT))
+from ..paths import PROJECT_ROOT
 
-from dm_gripper_cam_py.remote_camera import RemoteCameraCapture  # noqa: E402
+from ..camera import RemoteCameraCapture  # noqa: E402
 from dm_gripper_tac_py.tac import (  # noqa: E402
     SensorManager,
     disable_proxy_for_host,
@@ -39,7 +36,7 @@ from dm_gripper_tac_py.tac import (  # noqa: E402
 )
 
 
-DEFAULT_RECEIVER_PATH = EXAMPLES_DIR / "grip_signal_receiver.py"
+DEFAULT_RECEIVER_PATH = PROJECT_ROOT / "examples" / "grip_signal_receiver.py"
 WINDOW_NAME = "Daimond Pack Dual Dashboard"
 QUIT_KEYS = {ord("q"), 27}
 KEY_GRIP = ord("l")
@@ -106,15 +103,15 @@ def receiver_command(
         "--connect-retry-delay-sec",
         str(args.gripper_connect_retry_delay_sec),
         "--min-pos",
-        str(args.gripper_min_pos),
+        str(round(args.gripper_min_pos * 1000)),
         "--max-pos",
-        str(args.gripper_max_pos),
+        str(round(args.gripper_max_pos * 1000)),
         "--grip-speed",
-        str(args.gripper_grip_speed),
+        str(max(10, round(args.gripper_grip_speed * 100))),
         "--grip-torque",
-        str(args.gripper_grip_torque),
+        str(max(10, round(args.gripper_grip_torque * 100))),
         "--hold-torque",
-        str(args.gripper_hold_torque),
+        str(max(10, round(args.gripper_hold_torque * 100))),
         "--current-threshold",
         str(args.gripper_current_threshold),
         "--poll-interval",
@@ -128,11 +125,11 @@ def receiver_command(
         "--timeout",
         str(args.gripper_timeout),
         "--release-target",
-        str(args.gripper_release_target),
+        str(round(args.gripper_release_target * 1000)),
         "--release-speed",
-        str(args.gripper_release_speed),
+        str(max(10, round(args.gripper_release_speed * 100))),
         "--release-torque",
-        str(args.gripper_release_torque),
+        str(max(10, round(args.gripper_release_torque * 100))),
         "--release-wait",
         str(args.gripper_release_wait),
         (
@@ -199,6 +196,10 @@ def send_gripper_signal_to(
     args: argparse.Namespace,
     target: str | None = None,
 ) -> str:
+    # The external receiver uses SDK units; convert only at this boundary.
+    if command.startswith("move "):
+        position = float(command.split(maxsplit=1)[1])
+        command = f"move {round(clamp(position, 0, 1) * 1000)}"
     replies = []
     timeout = float(args.grip_signal_command_timeout_sec)
     for name, _, port in gripper_receiver_specs(args):
@@ -495,10 +496,10 @@ def make_control_bar(
     status_text: str,
     busy: bool,
     y_offset: int,
-    left_target_pos: int,
-    right_target_pos: int,
-    min_pos: int,
-    max_pos: int,
+    left_target_pos: float,
+    right_target_pos: float,
+    min_pos: float,
+    max_pos: float,
 ) -> tuple[np.ndarray, list[ControlButton]]:
     panel = np.zeros((CONTROL_BAR_HEIGHT, width, 3), dtype=np.uint8)
     panel[:] = (28, 31, 34)
@@ -536,7 +537,7 @@ def make_control_bar(
 
     track_x1 = 16
     track_x2 = max(track_x1 + 240, width - 284)
-    span = max(1, max_pos - min_pos)
+    span = max(1e-9, max_pos - min_pos)
 
     for label, target, target_pos, track_y in (
         ("Left", "left", left_target_pos, 30),
@@ -556,7 +557,7 @@ def make_control_bar(
         bar_x2 = track_x2
         cv2.rectangle(panel, (bar_x1, track_y), (bar_x2, track_y + 14), (70, 70, 70), -1)
         cv2.rectangle(panel, (bar_x1, track_y), (bar_x2, track_y + 14), (170, 170, 170), 1)
-        ratio = (int(clamp(target_pos, min_pos, max_pos)) - min_pos) / span
+        ratio = (float(clamp(target_pos, min_pos, max_pos)) - min_pos) / span
         knob_x = int(bar_x1 + ratio * (bar_x2 - bar_x1))
         cv2.rectangle(panel, (bar_x1, track_y), (knob_x, track_y + 14), (58, 93, 166), -1)
         cv2.circle(panel, (knob_x, track_y + 7), 12, (245, 245, 245), -1)
@@ -774,8 +775,8 @@ class DaimondPackDualApp:
         self.control_buttons: list[ControlButton] = []
         self.quit_requested = False
         self.gripper_target_pos_by_hand = {
-            "left": int(args.gripper_release_target),
-            "right": int(args.gripper_release_target),
+            "left": float(args.gripper_release_target),
+            "right": float(args.gripper_release_target),
         }
         self.dragging_gripper_target: str | None = None
         self.last_control_send_time_by_hand = {"left": 0.0, "right": 0.0}
@@ -838,15 +839,15 @@ class DaimondPackDualApp:
         results = [worker.reset() for worker in self.tactile_workers]
         self.status = "; ".join(results) if results else "No tactile sensors selected"
 
-    def position_from_control_x(self, x: int, rect: tuple[int, int, int, int]) -> int:
+    def position_from_control_x(self, x: int, rect: tuple[int, int, int, int]) -> float:
         x1, _, x2, _ = rect
         ratio = (x - x1) / max(1, x2 - x1)
         target = self.args.gripper_min_pos + ratio * (
             self.args.gripper_release_target - self.args.gripper_min_pos
         )
-        return int(round(clamp(target, self.args.gripper_min_pos, self.args.gripper_release_target)))
+        return float(clamp(target, self.args.gripper_min_pos, self.args.gripper_release_target))
 
-    def send_gripper_position(self, target: str, target_pos: int, *, force: bool = False) -> None:
+    def send_gripper_position(self, target: str, target_pos: float, *, force: bool = False) -> None:
         now = time.monotonic()
         min_interval = 1.0 / max(float(self.args.control_send_hz), 0.1)
         if not force and now - self.last_control_send_time_by_hand[target] < min_interval:
@@ -1012,20 +1013,20 @@ def add_gripper_args(parser: argparse.ArgumentParser) -> None:
             "calibration init fails. This performs a homing motion."
         ),
     )
-    parser.add_argument("--gripper-min-pos", type=int, default=300)
-    parser.add_argument("--gripper-max-pos", type=int, default=900)
-    parser.add_argument("--gripper-grip-speed", type=int, default=60)
-    parser.add_argument("--gripper-grip-torque", type=int, default=30)
-    parser.add_argument("--gripper-hold-torque", type=int, default=10)
+    parser.add_argument("--gripper-min-pos", type=float, default=0.3)
+    parser.add_argument("--gripper-max-pos", type=float, default=0.9)
+    parser.add_argument("--gripper-grip-speed", type=float, default=0.6)
+    parser.add_argument("--gripper-grip-torque", type=float, default=0.3)
+    parser.add_argument("--gripper-hold-torque", type=float, default=0.1)
     parser.add_argument("--gripper-current-threshold", type=int, default=120)
     parser.add_argument("--gripper-poll-interval", type=float, default=0.05)
     parser.add_argument("--gripper-contact-grace", type=float, default=0.4)
     parser.add_argument("--gripper-progress-epsilon", type=int, default=2)
     parser.add_argument("--gripper-stall-samples", type=int, default=5)
     parser.add_argument("--gripper-timeout", type=float, default=20.0)
-    parser.add_argument("--gripper-release-target", type=int, default=1000)
-    parser.add_argument("--gripper-release-speed", type=int, default=40)
-    parser.add_argument("--gripper-release-torque", type=int, default=20)
+    parser.add_argument("--gripper-release-target", type=float, default=1.0)
+    parser.add_argument("--gripper-release-speed", type=float, default=0.4)
+    parser.add_argument("--gripper-release-torque", type=float, default=0.2)
     parser.add_argument("--gripper-release-wait", type=float, default=0.5)
 
 
@@ -1119,14 +1120,14 @@ def normalize_args(args: argparse.Namespace) -> argparse.Namespace:
     except ValueError as exc:
         raise SystemExit(str(exc)) from exc
 
-    args.gripper_min_pos = int(clamp(args.gripper_min_pos, 0, 1000))
-    args.gripper_max_pos = int(clamp(args.gripper_max_pos, 0, 1000))
-    args.gripper_release_target = int(clamp(args.gripper_release_target, 0, 1000))
-    args.gripper_grip_speed = int(clamp(args.gripper_grip_speed, 10, 100))
-    args.gripper_release_speed = int(clamp(args.gripper_release_speed, 10, 100))
-    args.gripper_grip_torque = int(clamp(args.gripper_grip_torque, 10, 100))
-    args.gripper_hold_torque = int(clamp(args.gripper_hold_torque, 10, 100))
-    args.gripper_release_torque = int(clamp(args.gripper_release_torque, 10, 100))
+    args.gripper_min_pos = float(clamp(args.gripper_min_pos, 0, 1))
+    args.gripper_max_pos = float(clamp(args.gripper_max_pos, 0, 1))
+    args.gripper_release_target = float(clamp(args.gripper_release_target, 0, 1))
+    args.gripper_grip_speed = float(clamp(args.gripper_grip_speed, 0, 1))
+    args.gripper_release_speed = float(clamp(args.gripper_release_speed, 0, 1))
+    args.gripper_grip_torque = float(clamp(args.gripper_grip_torque, 0, 1))
+    args.gripper_hold_torque = float(clamp(args.gripper_hold_torque, 0, 1))
+    args.gripper_release_torque = float(clamp(args.gripper_release_torque, 0, 1))
     args.dual_gripper = bool(args.dual_gripper)
     args.left_gripper_server = str(args.left_gripper_server)
     args.right_gripper_server = str(args.right_gripper_server)
