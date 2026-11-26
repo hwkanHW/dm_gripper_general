@@ -11,6 +11,8 @@
 | `src/daimon_control/server/models.py` | 对外命令数据结构 |
 | `src/daimon_control/server/app.py` | FastAPI 路由、WebSocket 与服务启动 |
 | `src/daimon_control/server/image_stream.py` | 相机读取、JPEG 编码与 HTTP 图像服务 |
+| `src/daimon_control/server/viewer.py` | 服务就绪后的浏览器启动与网页资源定位 |
+| `src/daimon_control/server/web/` | 双相机网页的 HTML、CSS 和 JavaScript |
 | `src/daimon_control/clients/` | 远程控制 GUI、HTTP 查看器、直接控制 GUI |
 | `src/daimon_control/dashboards/` | 单/双手整合界面与现有控制链路 |
 | `sdks/dm_gripper_*/` | SDK、协议生成文件、模型及历史实验脚本 |

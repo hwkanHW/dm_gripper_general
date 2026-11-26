@@ -17,6 +17,10 @@ def build_arg_parser() -> argparse.ArgumentParser:
     parser.add_argument("--config", type=Path, default=DEFAULT_CONFIG, help="server JSON config (default: %(default)s)")
     parser.add_argument("--host")
     parser.add_argument("--port", type=int)
+    parser.add_argument(
+        "--open-browser", action=argparse.BooleanOptionalAction,
+        help="open the dual-camera web viewer when the server is ready",
+    )
     parser.add_argument("--left-gripper", help="left gripper host:port, empty to disable")
     parser.add_argument("--right-gripper", help="right gripper host:port, empty to disable")
     parser.add_argument("--speed", type=float, help="initial speed, 0..1 (SDK minimum 0.1)")
@@ -59,7 +63,7 @@ def parse_server_args(argv=None) -> argparse.Namespace:
         with args.config.open(encoding="utf-8") as config_file:
             config = json.load(config_file)
         sections = {
-            "server": {"host": "host", "port": "port"},
+            "server": {"host": "host", "port": "port", "open_browser": "open_browser"},
             "grippers": {
                 "left": "left_gripper", "right": "right_gripper",
                 "speed": "speed", "torque": "torque",
@@ -91,7 +95,7 @@ def parse_server_args(argv=None) -> argparse.Namespace:
 
         def validate(dest, value, label):
             action = actions[dest]
-            expected = bool if dest == "enable_image_streams" else (action.type or str)
+            expected = bool if dest in {"enable_image_streams", "open_browser"} else (action.type or str)
             if (expected is float and type(value) not in (int, float)) or (expected is not float and type(value) is not expected):
                 raise ValueError(f"{label} must be {expected.__name__}")
             if expected is str:
@@ -108,8 +112,11 @@ def parse_server_args(argv=None) -> argparse.Namespace:
 
         for section, fields in sections.items():
             values = config[section]
-            if not isinstance(values, dict) or set(values) != set(fields):
-                raise ValueError(f"{section} must contain exactly: {', '.join(fields)}")
+            defaults = {"open_browser": True} if section == "server" else {}
+            required = set(fields) - set(defaults)
+            if not isinstance(values, dict) or set(values) - set(fields) or required - set(values):
+                raise ValueError(f"{section} requires {', '.join(sorted(required))}; allowed: {', '.join(fields)}")
+            values = {**defaults, **values}
             for key, dest in fields.items():
                 value = validate(dest, values[key], f"{section}.{key}")
                 if hasattr(args, dest):

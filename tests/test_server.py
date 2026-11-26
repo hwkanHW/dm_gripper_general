@@ -11,7 +11,7 @@ from daimon_control.server.image_stream import CameraMjpegServer
 async def asgi_request(app, path, method='GET', payload=None):
     messages = []
     body = b'' if payload is None else json.dumps(payload).encode()
-    scope = {'type': 'http', 'asgi': {'version': '3.0'}, 'http_version': '1.1',
+    scope = {'type': 'http', 'asgi': {'version': '3.0', 'spec_version': '2.4'}, 'http_version': '1.1',
              'method': method, 'scheme': 'http', 'path': path, 'raw_path': path.encode(),
              'query_string': b'', 'root_path': '', 'server': ('test', 80),
              'client': ('test', 123), 'headers': [(b'content-type', b'application/json')]}
@@ -110,3 +110,35 @@ class ServerTests(unittest.TestCase):
             asyncio.run(run())
         runtime.stop.assert_called_once()
         stream.stop.assert_called_once()
+
+    def test_viewer_page_assets_and_disabled_stream(self):
+        status, body = asyncio.run(asgi_request(server.app, '/'))
+        self.assertEqual(status, 200)
+        self.assertIn('双夹爪相机', body.decode())
+        for path in ('/viewer-assets/style.css', '/viewer-assets/app.js'):
+            status, body = asyncio.run(asgi_request(server.app, path))
+            self.assertEqual(status, 200)
+            self.assertTrue(body)
+        with patch.object(server, 'camera_servers', []):
+            status, body = asyncio.run(asgi_request(server.app, '/cameras/state'))
+            self.assertFalse(json.loads(body)['enabled'])
+            status, body = asyncio.run(asgi_request(server.app, '/cameras/left/video'))
+            self.assertEqual(status, 503)
+
+    def test_viewer_uses_existing_camera_stream(self):
+        stream = MagicMock()
+        stream.side = 'left'
+        stream.snapshot.return_value = {'camera_host': 'test', 'has_frame': True, 'frame_count': 123}
+        stream._mjpeg_generator.return_value = iter([b'--frame\r\ntest-jpeg\r\n'])
+        with patch.object(server, 'camera_servers', [stream]):
+            status, body = asyncio.run(asgi_request(server.app, '/cameras/state'))
+            state = json.loads(body)
+            self.assertTrue(state['enabled'])
+            self.assertEqual(state['cameras']['left']['frame_count'], 123)
+            self.assertIsNone(state['cameras']['right'])
+            status, body = asyncio.run(asgi_request(server.app, '/cameras/left/video'))
+            self.assertEqual(status, 200)
+            self.assertIn(b'test-jpeg', body)
+            stream._mjpeg_generator.assert_called_once()
+            status, _ = asyncio.run(asgi_request(server.app, '/cameras/unknown/video'))
+            self.assertEqual(status, 422)

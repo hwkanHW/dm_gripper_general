@@ -41,7 +41,17 @@ server 默认从根目录的 [gripper_server_config.json](gripper_server_config.
 python gripper_server.py
 ```
 
-分别在其他终端启动夹爪 GUI 和相机查看器：
+启动完成后会自动打开浏览器，在同一页显示左右夹爪图像。默认地址为 `http://127.0.0.1:8020/`；另一台电脑可访问 `http://SERVER_IP:8020/`，端口以配置为准。网页复用 server 已有视频流，不额外占用相机会话。
+
+可在 `server.open_browser` 配置中关闭自动打开，或临时使用：
+
+```bash
+python gripper_server.py --no-open-browser
+```
+
+无桌面环境时可从其他电脑手动打开该地址。网页会提示相机未启用、等待图像或连接异常，并自动重连。
+
+也可在其他终端启动原有夹爪 GUI 和 OpenCV 相机查看器：
 
 ```bash
 python gripper_gui_client.py --server-url http://127.0.0.1:8020

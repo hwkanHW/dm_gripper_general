@@ -41,3 +41,4 @@ package-dir = {"" = "src", "dm_gripper_cam_py" = "sdks/dm_gripper_cam_py", "dm_g
 
 [tool.setuptools.package-data]
 dm_gripper_cam_py = ["*.proto"]
+"daimon_control.server" = ["web/*.html", "web/*.css", "web/*.js"]

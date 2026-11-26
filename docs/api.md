@@ -4,6 +4,10 @@
 
 | 接口 | 用途 |
 |---|---|
+| `GET /` | 双相机实时预览网页 |
+| `GET /cameras/state` | 左右相机画面状态、帧数和错误信息 |
+| `GET /cameras/left/video` | 左相机 MJPEG 视频流 |
+| `GET /cameras/right/video` | 右相机 MJPEG 视频流 |
 | `GET /health` | 夹爪 API 服务是否响应 |
 | `GET /state` | 左右夹爪的连接状态与读数 |
 | `POST /command` | 发送控制命令 |
@@ -31,3 +35,5 @@ HTTP 和 WebSocket 接受相同的命令结构：
 | `GET /snapshot.jpg` | 最新 JPEG，无帧时返回 `503` |
 
 图像服务 `/health` 可响应不代表已经收到画面，需检查 `has_frame` 和 `frame_count`。
+
+主 server 端口上的 `/cameras/*` 接口复用已有取流对象。`/cameras/state` 返回 `enabled` 和左右 `cameras` 状态；图像服务关闭时视频接口返回 `503`。网页资源位于 `/viewer-assets/`。

@@ -1,7 +1,8 @@
 {
   "server": {
     "host": "0.0.0.0",
-    "port": 8020
+    "port": 8020,
+    "open_browser": true
   },
   "grippers": {
     "left": "192.168.1.10:55551",

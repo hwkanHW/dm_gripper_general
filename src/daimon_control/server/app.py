@@ -3,15 +3,19 @@ from __future__ import annotations
 
 import asyncio
 from contextlib import asynccontextmanager
+from typing import Literal
 
 import uvicorn
-from fastapi import FastAPI, WebSocket, WebSocketDisconnect
+from fastapi import FastAPI, HTTPException, WebSocket, WebSocketDisconnect
+from fastapi.responses import HTMLResponse, JSONResponse, StreamingResponse
+from fastapi.staticfiles import StaticFiles
 from pydantic import ValidationError
 
 from ..config import DEFAULT_CONFIG, build_arg_parser, parse_server_args
 from ..gripper import GripperRuntime, GripperServer
 from .image_stream import CameraMjpegServer
 from .models import GripperCommand
+from .viewer import WEB_ROOT, ViewerServer
 
 try:
     import websockets
@@ -38,6 +42,33 @@ async def lifespan(_: FastAPI):
 
 
 app = FastAPI(title="Daimon gripper server", lifespan=lifespan)
+app.mount("/viewer-assets", StaticFiles(directory=WEB_ROOT), name="viewer-assets")
+
+
+@app.get("/", response_class=HTMLResponse)
+def web_viewer():
+    return HTMLResponse((WEB_ROOT / "index.html").read_text(encoding="utf-8"))
+
+
+@app.get("/cameras/state")
+def camera_state():
+    states = {stream.side: stream.snapshot() for stream in camera_servers}
+    return JSONResponse(
+        {"enabled": bool(camera_servers), "cameras": {side: states.get(side) for side in ("left", "right")}},
+        headers={"Cache-Control": "no-store"},
+    )
+
+
+@app.get("/cameras/{side}/video")
+def camera_video(side: Literal["left", "right"]):
+    stream = next((stream for stream in camera_servers if stream.side == side), None)
+    if stream is None:
+        raise HTTPException(status_code=503, detail="Camera image streams are disabled")
+    return StreamingResponse(
+        stream._mjpeg_generator(),
+        media_type="multipart/x-mixed-replace; boundary=frame",
+        headers={"Cache-Control": "no-store"},
+    )
 
 
 @app.get("/health")
@@ -134,7 +165,8 @@ def main(argv=None) -> None:
                 device=args.camera_device,
             ),
         ]
-    uvicorn.run(app, host=args.host, port=args.port, access_log=False)
+    config = uvicorn.Config(app, host=args.host, port=args.port, access_log=False)
+    ViewerServer(config, auto_open=args.open_browser).run()
 
 
 if __name__ == "__main__":

@@ -1,0 +1,39 @@
+<!doctype html>
+<html lang="zh-CN">
+<head>
+  <meta charset="utf-8">
+  <meta name="viewport" content="width=device-width,initial-scale=1">
+  <meta name="color-scheme" content="dark">
+  <title>双夹爪相机 · Daimon</title>
+  <link rel="stylesheet" href="/viewer-assets/style.css">
+  <script src="/viewer-assets/app.js" defer></script>
+</head>
+<body>
+  <main>
+    <header>
+      <div><p class="eyebrow">DAIMON / CAMERA VIEWER</p><h1>双夹爪相机</h1><p class="subtitle">左右画面，同步查看。</p></div>
+      <div class="connection"><span id="connection">正在连接服务…</span><button id="reconnect" type="button">重新连接</button></div>
+    </header>
+    <div class="camera-grid">
+      <section class="camera" id="left" aria-labelledby="left-title">
+        <div class="camera-heading"><h2 id="left-title">左夹爪</h2><span class="badge" id="left-status" role="status">等待连接</span></div>
+        <div class="picture">
+          <img id="left-image" alt="左夹爪相机实时画面" hidden>
+          <div class="placeholder" id="left-placeholder"><span class="camera-icon" aria-hidden="true">◉</span><p id="left-message">正在连接相机…</p></div>
+        </div>
+        <div class="camera-footer"><span id="left-source">相机 —</span><span id="left-frames">尚未收到画面</span></div>
+      </section>
+      <section class="camera" id="right" aria-labelledby="right-title">
+        <div class="camera-heading"><h2 id="right-title">右夹爪</h2><span class="badge" id="right-status" role="status">等待连接</span></div>
+        <div class="picture">
+          <img id="right-image" alt="右夹爪相机实时画面" hidden>
+          <div class="placeholder" id="right-placeholder"><span class="camera-icon" aria-hidden="true">◉</span><p id="right-message">正在连接相机…</p></div>
+        </div>
+        <div class="camera-footer"><span id="right-source">相机 —</span><span id="right-frames">尚未收到画面</span></div>
+      </section>
+    </div>
+    <p class="footnote">图像会自动重连。浏览器可全屏显示此页面。</p>
+    <noscript><p class="notice">请启用 JavaScript 以查看实时画面和连接状态。</p></noscript>
+  </main>
+</body>
+</html>

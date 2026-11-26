@@ -1,0 +1,220 @@
+:root {
+  font-family:Inter,"Noto Sans SC","Microsoft YaHei",system-ui,sans-serif;
+  color:#edf2f7;
+  background:#101419;
+  font-synthesis:none;
+  font-size:16px;
+  color-scheme:dark;
+}
+
+* {
+  box-sizing:border-box;
+}
+
+body {
+  margin:0;
+}
+
+main {
+  max-width:1920px;
+  margin:auto;
+  padding:40px 36px;
+}
+
+header {
+  display:flex;
+  justify-content:space-between;
+  align-items:center;
+  gap:24px;
+  margin-bottom:34px;
+}
+
+.eyebrow {
+  font-size:.875rem;
+  letter-spacing:.12em;
+  color:#85acba;
+  margin:0 0 10px;
+}
+
+h1 {
+  font-size:clamp(1.6rem,2.6vw,2.25rem);
+  font-weight:600;
+  letter-spacing:.02em;
+  margin:0;
+}
+
+.subtitle {
+  color:#9faab6;
+  margin:10px 0 0;
+}
+
+.connection {
+  display:flex;
+  align-items:center;
+  gap:18px;
+  font-size:.875rem;
+  color:#a8b5c3;
+}
+
+button {
+  font:inherit;
+  color:#dde7f0;
+  border:1px solid #3d4b59;
+  border-radius:8px;
+  padding:10px 16px;
+  background:#1d2732;
+  cursor:pointer;
+  white-space:nowrap;
+}
+
+button:hover {
+  background:#2b3b4a;
+}
+
+button:focus-visible {
+  outline:2px solid #7dd3c4;
+  outline-offset:4px;
+}
+
+.camera-grid {
+  display:grid;
+  grid-template-columns:minmax(0,1fr) minmax(0,1fr);
+  gap:24px;
+}
+
+.camera {
+  min-width:0;
+  border:1px solid #303a44;
+  border-radius:14px;
+  overflow:hidden;
+  background:#192028;
+}
+
+.camera-heading {
+  display:flex;
+  align-items:center;
+  justify-content:space-between;
+  gap:12px;
+  padding:18px 22px;
+}
+
+h2 {
+  font-size:1.125rem;
+  font-weight:550;
+  margin:0;
+}
+
+.badge {
+  font-size:.875rem;
+  background:#29323d;
+  color:#b3beca;
+  padding:6px 12px;
+  border-radius:20px;
+  white-space:nowrap;
+}
+
+.badge[data-state=live] {
+  background:#173d35;
+  color:#8ce5c9;
+}
+
+.badge[data-state=error] {
+  background:#4a3022;
+  color:#ffca9c;
+}
+
+.picture {
+  position:relative;
+  aspect-ratio:16/9;
+  background:#080c10;
+  display:flex;
+  align-items:center;
+  justify-content:center;
+}
+
+.picture img {
+  width:100%;
+  height:100%;
+  object-fit:contain;
+}
+
+.placeholder {
+  position:absolute;
+  inset:0;
+  display:flex;
+  align-items:center;
+  justify-content:center;
+  flex-direction:column;
+  padding:24px;
+  color:#aebac8;
+  text-align:center;
+  background:#0c1117;
+}
+
+.camera-icon {
+  font-size:2.4rem;
+  line-height:1;
+  color:#4b6174;
+}
+
+.placeholder p {
+  max-width:40em;
+  line-height:1.7;
+  overflow-wrap:anywhere;
+}
+
+.camera-footer {
+  display:flex;
+  justify-content:space-between;
+  gap:12px;
+  padding:16px 22px;
+  color:#98a7b8;
+  font-size:.875rem;
+  flex-wrap:wrap;
+}
+
+.footnote {
+  color:#8190a1;
+  font-size:.875rem;
+  text-align:center;
+  margin-top:26px;
+}
+
+.notice {
+  color:#ffca9c;
+}
+
+[hidden] {
+  display:none!important;
+}
+
+@media(max-width:900px) {
+  main {
+    padding:24px 20px;
+  }
+
+  header {
+    align-items:flex-start;
+    flex-direction:column;
+    margin-bottom:24px;
+  }
+
+  .camera-grid {
+    grid-template-columns:1fr;
+    gap:20px;
+  }
+
+  .connection {
+    width:100%;
+    justify-content:space-between;
+  }
+
+  .camera-heading,.camera-footer {
+    padding:16px;
+  }
+
+  .footnote {
+    line-height:1.7;
+  }
+
+}

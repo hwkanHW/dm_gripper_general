@@ -66,3 +66,21 @@ class ConfigTests(unittest.TestCase):
                              ('127.0.0.1', 9000, False, 9001, 320, 240, 15))
             self.assertTrue(parse_server_args(['--config', str(path), '--enable-image-streams']).enable_image_streams)
             self.assertFalse(parse_server_args(['--disable-image-streams']).enable_image_streams)
+
+    def test_browser_config_and_cli_override(self):
+        config = json.loads(server.DEFAULT_CONFIG.read_text())
+        with tempfile.TemporaryDirectory() as directory:
+            path = Path(directory) / 'config.json'
+            config['server']['open_browser'] = False
+            path.write_text(json.dumps(config))
+            self.assertFalse(server.parse_server_args(['--config', str(path)]).open_browser)
+            self.assertTrue(server.parse_server_args(['--config', str(path), '--open-browser']).open_browser)
+            self.assertFalse(server.parse_server_args(['--no-open-browser']).open_browser)
+            # Existing config files without the new field keep working.
+            del config['server']['open_browser']
+            path.write_text(json.dumps(config))
+            self.assertTrue(server.parse_server_args(['--config', str(path)]).open_browser)
+            config['server']['open_browser'] = 'false'
+            path.write_text(json.dumps(config))
+            with contextlib.redirect_stderr(io.StringIO()), self.assertRaises(SystemExit):
+                server.parse_server_args(['--config', str(path)])

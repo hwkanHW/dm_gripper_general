@@ -1,5 +1,9 @@
 # 常见问题
 
+## 网页没有自动打开
+
+浏览器在 server 所在机器上打开。检查 `server.open_browser` 是否开启、启动命令是否带 `--no-open-browser`。无桌面或无法启动浏览器时，服务会打印网页 URL，可手动打开 `http://SERVER_IP:8020/`，端口以配置为准。自动打开失败不会停止 server。
+
 ## 客户端连不到相机 HTTP 服务
 
 `img_client.py --host` 填 server 所在电脑的地址。同机查看可用：
