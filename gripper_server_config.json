@@ -13,7 +13,7 @@
     "max_pos": 1.0
   },
   "image_streams": {
-    "enabled": true,
+    "enabled": false,
     "host": "0.0.0.0",
     "left_port": 8021,
     "right_port": 8022

@@ -41,7 +41,7 @@ server 默认从根目录的 [gripper_server_config.json](gripper_server_config.
 python gripper_server.py
 ```
 
-启动完成后会自动打开浏览器，在同一页显示左右夹爪图像。默认地址为 `http://127.0.0.1:8020/`；另一台电脑可访问 `http://SERVER_IP:8020/`，端口以配置为准。网页复用 server 已有视频流，不额外占用相机会话。
+启动完成后会自动打开浏览器。图像传输默认关闭，页面会显示相机未启用；需要查看左右夹爪图像时，将配置中的 `image_streams.enabled` 设为 `true`，或使用 `python gripper_server.py --enable-image-streams` 启动。默认地址为 `http://127.0.0.1:8020/`；另一台电脑可访问 `http://SERVER_IP:8020/`，端口以配置为准。网页复用 server 已有视频流，不额外占用相机会话。
 
 可在 `server.open_browser` 配置中关闭自动打开，或临时使用：
 

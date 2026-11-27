@@ -17,7 +17,7 @@ daimon-server --config /path/to/gripper_server_config.json
 | `grippers` | `left`, `right` | 夹爪设备 `IP:端口`，空字符串禁用对应侧 |
 | `grippers` | `speed`, `torque` | 初始速度、力矩上限，`0..1` |
 | `grippers` | `min_pos`, `max_pos` | 允许的位置范围，`0..1`，下限不大于上限 |
-| `image_streams` | `enabled` | 布尔值，是否开启左右相机 HTTP 服务 |
+| `image_streams` | `enabled` | 布尔值，是否开启左右相机 HTTP 服务，默认 `false` |
 | `image_streams` | `host`, `left_port`, `right_port` | 图像服务监听地址及左右端口 |
 | `cameras` | `left_ip`, `right_ip`, `port` | 相机设备 IP 与共用 gRPC 端口 |
 | `cameras` | `width`, `height`, `fps` | 请求宽高与帧率，正整数，左右相机共用 |
@@ -36,7 +36,7 @@ daimon-server --config /path/to/gripper_server_config.json
 ```bash
 python gripper_server.py --camera-width 640 --camera-height 480 --camera-fps 30
 python gripper_server.py --speed 0.3 --torque 0.2
-python gripper_server.py --disable-image-streams
+python gripper_server.py --enable-image-streams
 python gripper_server.py --no-open-browser
 ```
 
