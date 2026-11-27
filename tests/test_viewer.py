@@ -1,4 +1,4 @@
-"""Browser launch is opt-out and happens only after the HTTP server is ready."""
+"""Browser launch is opt-in and happens only after the HTTP server is ready."""
 import asyncio
 import unittest
 from unittest.mock import patch

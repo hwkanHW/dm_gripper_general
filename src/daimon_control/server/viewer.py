@@ -38,7 +38,7 @@ class ViewerServer(uvicorn.Server):
         await super().startup(sockets=sockets)
         if not self.started:
             return
-        url = viewer_url(self.config.host, self.config.port)
-        logger.info("Dual-camera viewer: %s", url)
         if self.auto_open:
+            url = viewer_url(self.config.host, self.config.port)
+            logger.info("Dual-camera viewer: %s", url)
             threading.Thread(target=open_viewer, args=(url,), daemon=True, name="camera-viewer-browser").start()

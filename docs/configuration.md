@@ -12,12 +12,13 @@ daimon-server --config /path/to/gripper_server_config.json
 
 | 分组 | 字段 | 说明 |
 |---|---|---|
+| `server` | `enabled` | 是否开启夹爪 HTTP/WebSocket 服务及双相机网页，默认 `true`；不影响独立图像服务 |
 | `server` | `host`, `port` | HTTP/WebSocket 与双相机网页监听地址、端口 |
-| `server` | `open_browser` | 是否在服务就绪后自动打开双相机网页，默认 `true` |
+| `server` | `open_browser` | 是否在服务就绪后自动打开双相机网页，默认 `false`；不影响夹爪控制与图像传输 |
 | `grippers` | `left`, `right` | 夹爪设备 `IP:端口`，空字符串禁用对应侧 |
 | `grippers` | `speed`, `torque` | 初始速度、力矩上限，`0..1` |
 | `grippers` | `min_pos`, `max_pos` | 允许的位置范围，`0..1`，下限不大于上限 |
-| `image_streams` | `enabled` | 布尔值，是否开启左右相机 HTTP 服务，默认 `false` |
+| `image_streams` | `enabled` | 布尔值，是否开启左右相机 HTTP 服务，默认 `true` |
 | `image_streams` | `host`, `left_port`, `right_port` | 图像服务监听地址及左右端口 |
 | `cameras` | `left_ip`, `right_ip`, `port` | 相机设备 IP 与共用 gRPC 端口 |
 | `cameras` | `width`, `height`, `fps` | 请求宽高与帧率，正整数，左右相机共用 |
@@ -27,7 +28,7 @@ daimon-server --config /path/to/gripper_server_config.json
 | `cameras` | `bind_host` | 本机接收 UDP 的监听地址 |
 | `cameras` | `device` | 指定设备路径，空字符串让设备端选择 |
 
-除兼容旧配置而可省略的 `server.open_browser` 外，其他分组和字段均为必需项；未知字段、类型错误、非法范围会在连接硬件前报错。端口范围 `1..65535`。两侧夹爪不能同时禁用。
+`server.enabled` 和 `server.open_browser` 可省略，分别默认 `true` 和 `false`；其他分组和字段均为必需项。未知字段、类型错误、非法范围会在连接硬件前报错。端口范围 `1..65535`。两侧夹爪不能同时禁用。
 
 归一化位置 `0=闭合`、`1=张开`。速度、力矩按 `值 × 100` 转换，SDK 最小值为 `10`，所以 `0..0.1` 按最低档执行。位置按 `值 × 1000` 转为 SDK 单位。电流、温度、物理标定与时间参数保持原单位。
 
@@ -36,10 +37,10 @@ daimon-server --config /path/to/gripper_server_config.json
 ```bash
 python gripper_server.py --camera-width 640 --camera-height 480 --camera-fps 30
 python gripper_server.py --speed 0.3 --torque 0.2
-python gripper_server.py --enable-image-streams
-python gripper_server.py --no-open-browser
+python gripper_server.py --disable-image-streams
+python gripper_server.py --open-browser
 ```
 
 server 配置目前只控制 server。独立夹爪、相机和 dashboard 示例继续使用各自的命令行参数和默认值，尚未合并它们的运行配置。
 
-网页地址为 `http://SERVER_IP:端口/`，左右图像通过同一个 server 端口访问。自动打开的是 server 所在机器上的浏览器；远程机器或无桌面环境可手动打开网页。关闭自动打开不会关闭网页服务，关闭图像服务时页面仍可访问并显示未启用状态。
+夹爪主服务默认开启，`Uvicorn running on http://0.0.0.0:8020` 表示控制接口正在监听，不代表打开了浏览器。网页默认不自动打开，可手动访问 `http://SERVER_IP:端口/`，左右图像也可通过同一个主服务端口访问。`--open-browser` 会在 server 所在机器上打开浏览器，`--no-open-browser` 关闭自动打开。只有不需要夹爪控制 API 时才使用 `--disable-server`；它会关闭主服务，但保留独立图像服务。

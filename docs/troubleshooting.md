@@ -2,7 +2,9 @@
 
 ## 网页没有自动打开
 
-浏览器在 server 所在机器上打开。检查 `server.open_browser` 是否开启、启动命令是否带 `--no-open-browser`。无桌面或无法启动浏览器时，服务会打印网页 URL，可手动打开 `http://SERVER_IP:8020/`，端口以配置为准。自动打开失败不会停止 server。
+默认不自动打开浏览器，夹爪控制和图像服务正常运行。需要自动打开时，使用 `--open-browser` 或设置 `server.open_browser=true`。浏览器在 server 所在机器上打开，也可手动访问 `http://SERVER_IP:8020/`，端口以配置为准。自动打开失败不会停止 server。
+
+夹爪客户端出现 `Connection refused` 时，确认 `server.enabled=true`，且启动命令未带 `--disable-server`，然后重启 server。关闭浏览器自动打开应使用 `--no-open-browser`。
 
 ## 客户端连不到相机 HTTP 服务
 

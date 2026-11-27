@@ -117,14 +117,19 @@ async def command_ws(websocket: WebSocket, ack: bool = True):
         return
 
 
+async def run_without_main_server() -> None:
+    async with lifespan(app):
+        await asyncio.Event().wait()
+
+
 def main(argv=None) -> None:
     global runtime, camera_servers
-    if websockets is None:
+    args = parse_server_args(argv)
+    if args.enable_server and websockets is None:
         raise RuntimeError(
             "gripper_server.py requires a uvicorn WebSocket protocol backend. "
             "Run: python -m pip install websockets"
         )
-    args = parse_server_args(argv)
     args.left_gripper = args.left_gripper.strip() or None
     args.right_gripper = args.right_gripper.strip() or None
     if args.min_pos > args.max_pos:
@@ -165,8 +170,14 @@ def main(argv=None) -> None:
                 device=args.camera_device,
             ),
         ]
-    config = uvicorn.Config(app, host=args.host, port=args.port, access_log=False)
-    ViewerServer(config, auto_open=args.open_browser).run()
+    if args.enable_server:
+        config = uvicorn.Config(app, host=args.host, port=args.port, access_log=False)
+        ViewerServer(config, auto_open=args.open_browser).run()
+    else:
+        try:
+            asyncio.run(run_without_main_server())
+        except KeyboardInterrupt:
+            pass
 
 
 if __name__ == "__main__":

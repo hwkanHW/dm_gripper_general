@@ -14,6 +14,23 @@ from daimon_control import config as server
 
 
 class ConfigTests(unittest.TestCase):
+    def test_server_enable_config_and_overrides(self):
+        config = json.loads(server.DEFAULT_CONFIG.read_text())
+        with tempfile.TemporaryDirectory() as directory:
+            path = Path(directory) / 'config.json'
+            config['server']['enabled'] = True
+            path.write_text(json.dumps(config))
+            self.assertTrue(server.parse_server_args(['--config', str(path)]).enable_server)
+            self.assertFalse(server.parse_server_args(['--config', str(path), '--disable-server']).enable_server)
+            del config['server']['enabled']
+            path.write_text(json.dumps(config))
+            self.assertTrue(server.parse_server_args(['--config', str(path)]).enable_server)
+            self.assertTrue(server.parse_server_args(['--config', str(path), '--enable-server']).enable_server)
+            config['server']['enabled'] = 'false'
+            path.write_text(json.dumps(config))
+            with contextlib.redirect_stderr(io.StringIO()), self.assertRaises(SystemExit):
+                server.parse_server_args(['--config', str(path)])
+
     def test_config_fraction_and_rejection(self):
             config = json.loads(server.DEFAULT_CONFIG.read_text())
             config['grippers'].update(speed=0.25, torque=0.4, min_pos=0.2, max_pos=0.8)
@@ -79,7 +96,7 @@ class ConfigTests(unittest.TestCase):
             # Existing config files without the new field keep working.
             del config['server']['open_browser']
             path.write_text(json.dumps(config))
-            self.assertTrue(server.parse_server_args(['--config', str(path)]).open_browser)
+            self.assertFalse(server.parse_server_args(['--config', str(path)]).open_browser)
             config['server']['open_browser'] = 'false'
             path.write_text(json.dumps(config))
             with contextlib.redirect_stderr(io.StringIO()), self.assertRaises(SystemExit):
